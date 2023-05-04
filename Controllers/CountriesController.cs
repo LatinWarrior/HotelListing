@@ -3,7 +3,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
+using AutoMapper.Internal;
 using HotelListing.Data;
+using HotelListing.Models.Country;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -13,42 +16,53 @@ namespace HotelListing.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class Countries : ControllerBase
+    public class CountriesController : ControllerBase
     {
         private readonly HotelListingDbContext _context;
+        private readonly IMapper _mapper;
 
-        public Countries(HotelListingDbContext context)
+        public CountriesController(HotelListingDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // GET: api/Countries
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Country>>> GetCountries()
+        public async Task<ActionResult<IEnumerable<GetCountryDto>>> GetCountries()
         {
             var countries = await _context.Countries.ToListAsync();
-            return Ok(countries);
+            var records = _mapper.Map<List<GetCountryDto>>(countries);
+            return Ok(records);
         }
 
         // GET: api/Countries/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<Country>> GetCountry(int id)
+        public async Task<ActionResult<CountryDto>> GetCountry(int id)
         {
-            var country = await _context.Countries.FindAsync(id);
+            var country = await _context
+            .Countries
+            .Include(q => q.Hotels)
+            .FirstOrDefaultAsync(q => q.Id == id);
 
             if (country == null)
             {
                 return NotFound();
             }
 
-            return Ok(country);
+            var countryDto = _mapper.Map<CountryDto>(country);
+
+            return Ok(countryDto);
         }
 
         // POST: api/Countries
         [HttpPost]
-        public async Task<ActionResult> PostCountry(Country country)
+        public async Task<ActionResult<Country>> PostCountry(CreateCountryDto createCountryDto)
         {
+            var country = _mapper.Map<Country>(createCountryDto);
+
             _context.Countries.Add(country);
+
             await _context.SaveChangesAsync();
 
             return CreatedAtAction("GetCountry", new { id = country.Id }, country);
@@ -57,14 +71,24 @@ namespace HotelListing.Controllers
         // PUT: api/Countries/5
         // To protect from over-posting attacks, see...
         [HttpPut("{id}")]
-        public async Task<ActionResult> PutCountry(int id, Country country)
+        public async Task<ActionResult> PutCountry(int id, UpdateCountryDto updateCountryDto)
         {
-            if (id != country.Id)
+            if (id != updateCountryDto.Id)
             {
                 return BadRequest("Invalid Record Id");
             }
 
-            _context.Entry(country).State = EntityState.Modified;
+            // _context.Entry(updateCountryDto).State = EntityState.Modified;
+
+            var country = await _context.Countries.FindAsync(id);
+
+            if (country == null)
+            {
+                return NotFound();
+            }
+
+            // Entity Framework knows country is being tracked.
+            _mapper.Map(updateCountryDto, country);
 
             try
             {
