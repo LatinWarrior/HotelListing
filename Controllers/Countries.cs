@@ -26,7 +26,8 @@ namespace HotelListing.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Country>>> GetCountries()
         {
-            return await _context.Countries.ToListAsync();
+            var countries = await _context.Countries.ToListAsync();
+            return Ok(countries);
         }
 
         // GET: api/Countries/5
@@ -40,7 +41,7 @@ namespace HotelListing.Controllers
                 return NotFound();
             }
 
-            return country;
+            return Ok(country);
         }
 
         // POST: api/Countries
@@ -55,10 +56,16 @@ namespace HotelListing.Controllers
 
         // PUT: api/Countries/5
         // To protect from over-posting attacks, see...
-        [HttpPut("id")]
+        [HttpPut("{id}")]
         public async Task<ActionResult> PutCountry(int id, Country country)
         {
+            if (id != country.Id)
+            {
+                return BadRequest("Invalid Record Id");
+            }
+
             _context.Entry(country).State = EntityState.Modified;
+
             try
             {
                 await _context.SaveChangesAsync();
